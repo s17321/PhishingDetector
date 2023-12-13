@@ -1,71 +1,100 @@
 package com.piotr.phishingdetector.java;
 
+// Ten program jest treningowy..
+
+
+
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class PhishingDetector {
-    private static final String PHISHING_SERVICE_URL = "https://cloud.google.com/web-risk/docs/reference/rest/v1eap1/TopLevel/evaluateUri";
-    private static final String SMS_NUMBER = "123456789"; // Określony numer do odbierania SMS-ów
 
-    public static void main(String[] args) {
-        String urlToCheck = "https://www.m-bonk.pl.ng/personal-data";
+    private static final String PHISHING_API_URL = "https://cloud.google.com/web-risk/docs/reference/rest/v1eap1/TopLevel/evaluateUri";
 
-        if (isPhishing(urlToCheck)) {
-            System.out.println("Phishing detected!");
+    public static boolean isPhishing(String message) {
+        // Analiza treści wiadomości, sprawdzanie czy zawiera podejrzane frazy, itp.
+        boolean containsPhishingContent = analyzeContent(message);
+
+        if (containsPhishingContent) {
+            // Jeśli zawiera podejrzane treści, odrzuć wiadomość jako potencjalny phishing
+            return true;
         } else {
-            System.out.println("No phishing detected.");
+            // Jeśli nie zawiera podejrzanych treści, sprawdź URL przy użyciu zewnętrznego serwisu
+            boolean isPhishingURL = checkURL(message);
+            return isPhishingURL;
         }
-
-        // Przykład obsługi SMS-ów
-        handleSMS("START"); // Użytkownik wyraża chęć skorzystania z usługi
-        handleSMS("STOP");  // Użytkownik wyraża rezygnację z usługi
     }
 
-    public static boolean isPhishing(String url) {
-        try {
-            // Tworzymy klienta HTTP
-            HttpClient client = HttpClient.newHttpClient();
+    private static boolean analyzeContent(String message) {
+        // Implementacja analizy treści wiadomości
+        // Sprawdzanie czy zawiera podejrzane frazy, słowa kluczowe, itp.
+        // Możesz dostosować tę metodę do własnych potrzeb
+        return false;
+    }
 
-            // Tworzymy zapytanie HTTP GET z adresem URL serwisu oceny phishingu
+    private static boolean checkURL(String url) {
+        // Pobierz URL z treści wiadomości (np. przy użyciu regex)
+        try {
+            HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(new URI(PHISHING_SERVICE_URL + "?url=" + url))
-                    .GET()
+                    .uri(URI.create(PHISHING_API_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(url)))
                     .build();
 
-            // Wykonujemy zapytanie i odbieramy odpowiedź
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            // Sprawdzamy status odpowiedzi (200 oznacza sukces)
-            if (response.statusCode() == 200) {
-                // Tutaj możesz analizować zawartość odpowiedzi (np. JSON) i wyciągać informacje o ocenie phishingu.
-                // Poniżej znajduje się tylko przykład, można dostosować do rzeczywistego interfejsu serwisu.
-
-                // Zakładamy, że odpowiedź JSON zawiera pole "isPhishing", które informuje o ocenie.
-                boolean isPhishing = response.body().contains("\"isPhishing\": true");
-
-                return isPhishing;
-            } else {
-                // Obsługa błędu
-                System.out.println("Error while evaluating the URL: " + response.statusCode());
-                return false;
-            }
+            return analyzePhishingResponse(response.body());
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
-    private static void handleSMS(String message) {
-        // Obsługa SMS-ów, np. analiza treści i aktualizacja preferencji użytkownika
-        if (message.equalsIgnoreCase("START")) {
-            System.out.println("User opted in to the service.");
-            // Tutaj możesz dodać kod do aktualizacji preferencji użytkownika w bazie danych.
-        } else if (message.equalsIgnoreCase("STOP")) {
-            System.out.println("User opted out of the service.");
-            // Tutaj możesz dodać kod do aktualizacji preferencji użytkownika w bazie danych.
-        } else {
-            System.out.println("Unknown SMS command.");
+
+    private static String extractURL(String message) {
+        // Implementacja ekstrakcji URL z treści wiadomości
+        // Możesz użyć regex lub innych metod, w zależności od formatu wiadomości
+        return "https://example.com";  // Przykładowy URL
+    }
+
+    private static boolean callPhishingAPI(String url) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(PHISHING_API_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{\"url\": \"" + url + "\"}"))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            // Analiza odpowiedzi z serwisu
+            // Jeśli odpowiedź wskazuje, że URL jest podejrzany, zwróć true
+            return analyzePhishingResponse(response.body());
+        } catch (Exception e) {
+            e.printStackTrace();
+            // W przypadku błędu, zwróć false (na wszelki wypadek)
+            return false;
         }
+    }
+
+    private static String buildRequestBody(String url) {
+        // Tworzenie treści żądania do API zgodnie z wymaganiami
+        return String.format("{\"uri\": \"%s\", \"threatTypes\": [\"SOCIAL_ENGINEERING\", \"MALWARE\", \"UNWANTED_SOFTWARE\"], \"allowScan\": true}", url);
+    }
+    private static boolean analyzePhishingResponse(String responseBody) {
+        // Analiza odpowiedzi z serwisu
+        // Możesz dostosować tę metodę do formatu odpowiedzi serwisu
+        // W przykładowym kodzie zakładałem prostą analizę JSONa
+        return responseBody.contains("\"phishing\": true");
+    }
+
+    public static void main(String[] args) {
+        String sampleMessage = "{\"sender\": \"234100200300\", \"recipient\": \"48700800999\", \"message\": \"Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data\"}";
+        boolean isPhishing = isPhishing(sampleMessage);
+        System.out.println("Is phishing: " + isPhishing);
     }
 }
